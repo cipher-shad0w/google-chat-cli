@@ -10,7 +10,7 @@ import (
 )
 
 // Version is the current version of gogchat.
-const Version = "0.1.0"
+var Version = "dev"
 
 // Cfg holds the loaded application configuration, available after
 // PersistentPreRun has executed.
