@@ -1,0 +1,59 @@
+/* Main horizontal layout */
+#main-container {
+    width: 100%;
+    height: 100%;
+}
+
+/* Groups panel - left side, 20% width */
+#groups-panel {
+    width: 30%;
+    height: 100%;
+    border: solid white;
+    border-title-align: left;
+    border-title-color: white;
+}
+
+/* Main content area - right side, 80% width */
+#main-content {
+    width: 70%;
+    height: 100%;
+}
+
+/* Chat panel - fills available vertical space */
+#chat-panel {
+    height: 1fr;
+    border: solid white;
+    border-title-align: left;
+    border-title-color: white;
+}
+
+/* Input panel - 5 lines total for 3 lines of input */
+#input-panel {
+    height: 5;
+    border: solid white;
+    border-title-align: left;
+    border-title-color: white;
+}
+
+ListItem:hover {
+    color: white;
+    text-style: bold;
+}
+
+ListItem.-selected {
+    color: white;
+    text-style: bold;
+}
+
+/* TextArea styling - remove internal decorations */
+TextArea {
+    height: 100%;
+    width: 100%;
+    border: none;
+}
+
+#message-input {
+    height: 100%;
+    width: 100%;
+    border: none;
+}
