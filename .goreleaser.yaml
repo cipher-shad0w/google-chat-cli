@@ -50,7 +50,7 @@ brews:
       owner: cipher-shad0w
       name: homebrew-tap
       token: "{{ .Env.TAP_GITHUB_TOKEN }}"
-    folder: Formula
+    directory: Formula
     homepage: "https://github.com/cipher-shad0w/gogchat"
     description: "A CLI for the Google Chat API"
     license: "MIT"
