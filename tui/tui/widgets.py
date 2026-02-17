@@ -14,39 +14,35 @@ logger = logging.getLogger(__name__)
 
 
 class VimListView(ListView):
-    """A ListView with optional vim-style keybindings.
+    """A ListView with vim-style keybindings.
 
-    When vim mode is enabled (via config), j/k navigate up/down and
-    g/G jump to first/last item.
+    j/k navigate up/down and g/G jump to first/last item.
     """
 
     def _on_key(self, event: events.Key) -> None:
-        from tui.config import get_config
-
-        if get_config().vim_mode:
-            if event.key == "j":
-                event.prevent_default()
-                event.stop()
-                self.action_cursor_down()
-                return
-            elif event.key == "k":
-                event.prevent_default()
-                event.stop()
-                self.action_cursor_up()
-                return
-            elif event.key == "g":
-                event.prevent_default()
-                event.stop()
-                self.index = 0
+        if event.key == "j":
+            event.prevent_default()
+            event.stop()
+            self.action_cursor_down()
+            return
+        elif event.key == "k":
+            event.prevent_default()
+            event.stop()
+            self.action_cursor_up()
+            return
+        elif event.key == "g":
+            event.prevent_default()
+            event.stop()
+            self.index = 0
+            self.scroll_visible()
+            return
+        elif event.key == "G":
+            event.prevent_default()
+            event.stop()
+            if len(self) > 0:
+                self.index = len(self) - 1
                 self.scroll_visible()
-                return
-            elif event.key == "G":
-                event.prevent_default()
-                event.stop()
-                if len(self) > 0:
-                    self.index = len(self) - 1
-                    self.scroll_visible()
-                return
+            return
         super()._on_key(event)
 
 
@@ -120,6 +116,8 @@ class GroupsPanel(Static):
         self._filter_text: str = ""
         self._category_filter: str = "all"  # "all", "spaces", "dms"
         self.load_spaces()
+        # Ensure the list is focused, not the filter input
+        self.set_timer(0.1, lambda: self.query_one("#groups-list").focus())
 
     def on_input_changed(self, event: Input.Changed) -> None:
         """Filter spaces list when the search input changes."""
@@ -586,20 +584,23 @@ class MessageActionScreen(ModalScreen[str | None]):
 
     BINDINGS = [("escape", "cancel", "Cancel")]
 
-    def __init__(self, message_name: str, body_text: str) -> None:
+    def __init__(
+        self, message_name: str, body_text: str, is_own_message: bool = False
+    ) -> None:
         self.message_name = message_name
         self.body_text = body_text
+        self.is_own_message = is_own_message
         super().__init__()
 
     def compose(self) -> ComposeResult:
         with Vertical(id="action-dialog"):
             yield Label("Message Actions", id="action-dialog-title")
-            yield ListView(
-                ListItem(Label("📝  Edit message"), id="action-edit"),
-                ListItem(Label("🗑️  Delete message"), id="action-delete"),
-                ListItem(Label("💬  Quote reply"), id="action-quote"),
-                id="action-list",
-            )
+            items = []
+            if self.is_own_message:
+                items.append(ListItem(Label("📝  Edit message"), id="action-edit"))
+                items.append(ListItem(Label("🗑️  Delete message"), id="action-delete"))
+            items.append(ListItem(Label("💬  Quote reply"), id="action-quote"))
+            yield ListView(*items, id="action-list")
 
     def on_mount(self) -> None:
         self.query_one("#action-list", ListView).focus()
@@ -620,7 +621,10 @@ class MessageActionScreen(ModalScreen[str | None]):
 class EditMessageScreen(ModalScreen[str | None]):
     """Modal dialog to edit a message's text."""
 
-    BINDINGS = [("escape", "cancel", "Cancel")]
+    BINDINGS = [
+        ("escape", "cancel", "Cancel"),
+        ("ctrl+s", "save", "Save"),
+    ]
 
     def __init__(self, current_text: str) -> None:
         self.current_text = current_text
@@ -628,19 +632,20 @@ class EditMessageScreen(ModalScreen[str | None]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="edit-dialog"):
-            yield Label("Edit message:", id="edit-dialog-title")
+            yield Label(
+                "Edit message [dim](Ctrl+S to save, Escape to cancel)[/dim]:",
+                id="edit-dialog-title",
+            )
             yield TextArea(self.current_text, id="edit-input")
 
     def on_mount(self) -> None:
         self.query_one("#edit-input", TextArea).focus()
 
-    def _on_key(self, event: events.Key) -> None:
-        if event.key == "ctrl+s":
-            # Save with Ctrl+S
-            text = self.query_one("#edit-input", TextArea).text.strip()
-            if text:
-                self.dismiss(text)
-            return
+    def action_save(self) -> None:
+        """Save the edited message."""
+        text = self.query_one("#edit-input", TextArea).text.strip()
+        if text:
+            self.dismiss(text)
 
     def action_cancel(self) -> None:
         self.dismiss(None)

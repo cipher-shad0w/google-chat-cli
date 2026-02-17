@@ -700,6 +700,59 @@ def create_reaction(message_name: str, emoji: str) -> bool:
     return True
 
 
+def get_self_user_id() -> str | None:
+    """Determine the current authenticated user's resource name.
+
+    Uses the space read-state API to resolve ``users/me`` into the real
+    user resource name (e.g. ``users/123456789``).
+
+    Returns:
+        The user resource name or ``None`` if it cannot be determined.
+    """
+    try:
+        gogchat_path = get_gogchat_path()
+    except FileNotFoundError:
+        return None
+
+    try:
+        # Fetch one space so we have a space name to query read-state with
+        result = subprocess.run(
+            [gogchat_path, "spaces", "list", "--json", "--page-size", "1"],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=15,
+        )
+        data = json.loads(result.stdout)
+        spaces = data.get("spaces", [])
+        if not spaces:
+            return None
+
+        space_name = spaces[0].get("name", "")
+        if not space_name:
+            return None
+
+        # The read-state response resolves "users/me" to the real user ID
+        read_state_name = f"users/me/{space_name}/spaceReadState"
+        rs_result = subprocess.run(
+            [gogchat_path, "readstate", "get-space", read_state_name, "--json"],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=15,
+        )
+        rs_data = json.loads(rs_result.stdout)
+        # The response "name" field looks like "users/123456/spaces/AAAA/spaceReadState"
+        rs_name = rs_data.get("name", "")
+        parts = rs_name.split("/")
+        if len(parts) >= 2 and parts[0] == "users":
+            return f"users/{parts[1]}"
+    except Exception:
+        logger.debug("Could not determine current user ID", exc_info=True)
+
+    return None
+
+
 def list_spaces_cached() -> list[dict]:
     """Return spaces from cache if available, otherwise fetch from API."""
     cached = get_cache().get_spaces()

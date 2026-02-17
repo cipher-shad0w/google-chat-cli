@@ -79,6 +79,7 @@ class ChatApp(App):
         self._current_messages = []
         self._current_user_name_map = {}
         self._poll_timer = None
+        self._current_user_id: str | None = None
 
     async def on_mount(self) -> None:
         """Run startup checks when the app mounts."""
@@ -108,6 +109,13 @@ class ChatApp(App):
                 severity="error",
                 timeout=10,
             )
+        else:
+            # Detect current user ID for ownership checks
+            from tui.cli import get_self_user_id
+
+            user_id = get_self_user_id()
+            if user_id:
+                self._current_user_id = user_id
 
     def compose(self) -> ComposeResult:
         """Create the application layout."""
@@ -509,6 +517,10 @@ class ChatApp(App):
 
         msg_name = highlighted.message_name
         body_text = highlighted.body_text
+        is_own = (
+            self._current_user_id is not None
+            and highlighted.sender_user_id == self._current_user_id
+        )
 
         def _handle_action(action: str | None) -> None:
             if action is None:
@@ -521,7 +533,8 @@ class ChatApp(App):
                 self._quote_reply(body_text)
 
         self.push_screen(
-            MessageActionScreen(msg_name, body_text), callback=_handle_action
+            MessageActionScreen(msg_name, body_text, is_own_message=is_own),
+            callback=_handle_action,
         )
 
     def _open_edit_dialog(self, message_name: str, current_text: str) -> None:
@@ -587,11 +600,7 @@ class ChatApp(App):
             )
 
     def action_focus_spaces(self) -> None:
-        """Focus the spaces list panel (vim: h)."""
-        from tui.config import get_config
-
-        if not get_config().vim_mode:
-            return
+        """Focus the spaces list panel (h)."""
         try:
             groups_list = self.query_one("#groups-list", ListView)
             groups_list.focus()
@@ -599,11 +608,7 @@ class ChatApp(App):
             pass
 
     def action_focus_chat(self) -> None:
-        """Focus the chat log panel (vim: l)."""
-        from tui.config import get_config
-
-        if not get_config().vim_mode:
-            return
+        """Focus the chat log panel (l)."""
         try:
             chat_log = self.query_one("#chat-log", ChatLog)
             chat_log.focus()
@@ -611,11 +616,7 @@ class ChatApp(App):
             pass
 
     def action_focus_search(self) -> None:
-        """Focus the message input (vim: /)."""
-        from tui.config import get_config
-
-        if not get_config().vim_mode:
-            return
+        """Focus the message input (/)."""
         try:
             message_input = self.query_one("#message-input", MessageInput)
             message_input.focus()
