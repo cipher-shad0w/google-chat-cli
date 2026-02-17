@@ -66,6 +66,7 @@ class ChatApp(App):
         ("h", "focus_spaces", "Spaces"),
         ("l", "focus_chat", "Chat"),
         ("slash", "focus_search", "Search"),
+        ("f", "toggle_message_search", "Find"),
     ]
 
     current_space: str | None = None
@@ -566,6 +567,11 @@ class ChatApp(App):
             message_input.focus()
         except Exception:
             pass
+
+    def action_toggle_message_search(self) -> None:
+        """Toggle the message search bar."""
+        chat_panel = self.query_one("#chat-panel", ChatPanel)
+        chat_panel.toggle_search()
 
     def action_refresh_spaces(self) -> None:
         """Refresh the spaces list."""

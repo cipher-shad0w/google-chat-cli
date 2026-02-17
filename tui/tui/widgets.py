@@ -89,14 +89,39 @@ class GroupsPanel(Static):
             super().__init__()
 
     def compose(self) -> ComposeResult:
-        """Create the groups list view."""
+        """Create the groups list view with search filter."""
+        yield Input(placeholder="Filter spaces…", id="space-filter")
         yield VimListView(id="groups-list")
 
     def on_mount(self) -> None:
         """Set the border title and load spaces."""
         self.border_title = "Groups"
         self._current_spaces: list[dict] = []
+        self._all_spaces: list[dict] = []
+        self._filter_text: str = ""
         self.load_spaces()
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        """Filter spaces list when the search input changes."""
+        if event.input.id != "space-filter":
+            return
+        self._filter_text = event.value.lower().strip()
+        self._apply_space_filter()
+
+    def _apply_space_filter(self) -> None:
+        """Re-populate the spaces list based on the current filter text."""
+        if not self._filter_text:
+            # Show all spaces
+            self._populate_spaces(self._all_spaces)
+        else:
+            # Filter spaces by display name
+            filtered = [
+                s
+                for s in self._all_spaces
+                if self._filter_text
+                in (s.get("displayName", "") or s.get("name", "")).lower()
+            ]
+            self._populate_spaces(filtered)
 
     def load_spaces(self) -> None:
         """Load spaces — show cached data instantly, then refresh from API."""
@@ -213,6 +238,10 @@ class GroupsPanel(Static):
         self, spaces: list[dict], unread_spaces: set[str] | None = None
     ) -> None:
         """Populate the ListView with space items."""
+        # Store the full list (only when called without filtering)
+        if not self._filter_text:
+            self._all_spaces = spaces
+
         groups_list = self.query_one("#groups-list", ListView)
         groups_list.clear()
 
@@ -333,15 +362,66 @@ class ChatLog(VimListView):
 
 
 class ChatPanel(Static):
-    """Main panel displaying chat messages."""
+    """Main panel displaying chat messages with optional search."""
 
     def compose(self) -> ComposeResult:
-        """Create the chat log view."""
+        """Create the chat log view with search bar."""
+        yield Input(
+            placeholder="Search messages…",
+            id="message-search",
+            classes="search-hidden",
+        )
         yield ChatLog(id="chat-log")
 
     def on_mount(self) -> None:
         """Set the border title when mounted."""
         self.border_title = "Chat"
+        self._search_visible = False
+
+    def toggle_search(self) -> None:
+        """Toggle the message search bar visibility."""
+        search_input = self.query_one("#message-search", Input)
+        self._search_visible = not self._search_visible
+        if self._search_visible:
+            search_input.remove_class("search-hidden")
+            search_input.add_class("search-visible")
+            search_input.focus()
+        else:
+            search_input.add_class("search-hidden")
+            search_input.remove_class("search-visible")
+            search_input.value = ""
+            # Restore all messages visibility
+            self._clear_message_filter()
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        """Filter messages when the search input changes."""
+        if event.input.id != "message-search":
+            return
+        search_text = event.value.lower().strip()
+        self._filter_messages(search_text)
+
+    def _filter_messages(self, search_text: str) -> None:
+        """Show/hide messages based on search text."""
+        chat_log = self.query_one("#chat-log", ChatLog)
+        for item in chat_log.children:
+            if isinstance(item, MessageItem):
+                if not search_text:
+                    item.display = True
+                else:
+                    # Search in the raw message content
+                    content = item.message_content.lower()
+                    body = (item.body_text or "").lower()
+                    if search_text in content or search_text in body:
+                        item.display = True
+                    else:
+                        item.display = False
+
+    def _clear_message_filter(self) -> None:
+        """Show all messages (clear the filter)."""
+        chat_log = self.query_one("#chat-log", ChatLog)
+        for item in chat_log.children:
+            if isinstance(item, MessageItem):
+                item.display = True
 
 
 class MessageInput(TextArea):

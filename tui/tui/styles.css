@@ -340,3 +340,39 @@ ConfirmDeleteScreen {
     width: 100%;
     text-align: center;
 }
+
+/* Space filter input */
+#space-filter {
+    width: 100%;
+    height: 3;
+    border: none;
+    border-bottom: solid gray;
+    background: #121212;
+    dock: top;
+}
+
+#space-filter:focus {
+    border-bottom: solid white;
+}
+
+/* Message search bar */
+#message-search {
+    width: 100%;
+    height: 3;
+    border: none;
+    border-bottom: solid gray;
+    background: #121212;
+    dock: top;
+}
+
+#message-search:focus {
+    border-bottom: solid white;
+}
+
+.search-hidden {
+    display: none;
+}
+
+.search-visible {
+    display: block;
+}
