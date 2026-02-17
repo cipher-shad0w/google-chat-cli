@@ -45,12 +45,12 @@ ListItem.-highlight {
 }
 
 ListView:focus > ListItem.-highlight {
-    background: white;
+    background: #404040;
 }
 
 
 ListItem.-selected {
-    color: white;
+    color: #404040;
     text-style: bold;
 }
 
