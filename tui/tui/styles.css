@@ -40,10 +40,6 @@ ListItem {
     background: #121212;
 }
 
-ListView > ListItem.-hovered {
-    background: white;
-}
-
 ListItem.-highlight {
     background: #2a2a2a;
 }
@@ -52,10 +48,6 @@ ListView:focus > ListItem.-highlight {
     background: white;
 }
 
-ListItem:hover {
-    text-style: bold;
-    background: white;
-}
 
 ListItem.-selected {
     color: white;
