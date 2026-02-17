@@ -245,7 +245,7 @@ class MessageItem(ListItem):
             prefix_label.styles.width = prefix_width
             prefix_label.styles.min_width = prefix_width
             prefix_label.styles.max_width = prefix_width
-            body_label = Label(body_text, markup=False, classes="msg-body")
+            body_label = Label(body_text, markup=True, classes="msg-body")
             container = Horizontal(prefix_label, body_label, classes="msg-row")
             super().__init__(container)
         else:

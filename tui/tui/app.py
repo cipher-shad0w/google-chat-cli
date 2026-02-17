@@ -227,6 +227,20 @@ class ChatApp(App):
             user_id = sender.get("name", "")
             text = msg.get("text", "")
 
+            # Format rich text (bold, italic, code, links)
+            from tui.richtext import format_message_text, format_attachments
+
+            formatted_text = format_message_text(text)
+
+            # Add attachment indicators
+            attachment_str = format_attachments(msg)
+            if attachment_str:
+                formatted_text = (
+                    f"{formatted_text}\n{attachment_str}"
+                    if formatted_text
+                    else attachment_str
+                )
+
             # Parse the send time from createTime (e.g. "2025-01-15T11:23:45.123Z")
             time_str = ""
             has_time = False
@@ -252,7 +266,7 @@ class ChatApp(App):
             prefix_width = (time_prefix_len if has_time else 0) + max_name_len + 1
 
             # Full content string for raw storage
-            content = f"{prefix_markup}{text}"
+            content = f"{prefix_markup}{formatted_text}"
 
             item = MessageItem(
                 content,
@@ -260,7 +274,7 @@ class ChatApp(App):
                 is_name_resolved=resolved,
                 prefix_markup=prefix_markup,
                 prefix_width=prefix_width,
-                body_text=text,
+                body_text=formatted_text,
             )
             chat_log._raw_entries.append(content)
             chat_log.append(item)
