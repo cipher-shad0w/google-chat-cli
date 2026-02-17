@@ -15,9 +15,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from tui.config import get_config
+
 logger = logging.getLogger(__name__)
 
-_MEMBERS_TTL_SECONDS: float = 3600.0  # 1 hour
+_MEMBERS_TTL_SECONDS: float = 3600.0  # 1 hour (fallback default)
 
 
 class Cache:
@@ -155,7 +157,8 @@ class Cache:
         (TTL: 1 hour).
         """
         path = self._dir / "members" / f"{self._space_id(space_name)}.json"
-        if self._is_expired(path, _MEMBERS_TTL_SECONDS):
+        ttl = get_config().members_cache_ttl
+        if self._is_expired(path, ttl):
             return None
         wrapper = self._read(path)
         if wrapper is None:

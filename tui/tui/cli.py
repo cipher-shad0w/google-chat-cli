@@ -11,6 +11,7 @@ import subprocess
 from pathlib import Path
 
 from tui.cache import get_cache
+from tui.config import get_config
 
 logger = logging.getLogger(__name__)
 
@@ -404,6 +405,7 @@ def update_space_read_state(space_name: str, last_read_time: str) -> bool:
 
     return True
 
+
 def list_spaces_cached() -> list[dict]:
     """Return spaces from cache if available, otherwise fetch from API."""
     cached = get_cache().get_spaces()
@@ -421,8 +423,10 @@ def list_spaces_fresh() -> list[dict]:
     return spaces
 
 
-def list_messages_cached(space_name: str, limit: int = 25) -> list[dict]:
+def list_messages_cached(space_name: str, limit: int | None = None) -> list[dict]:
     """Return messages from cache if available, otherwise fetch from API."""
+    if limit is None:
+        limit = get_config().message_page_size
     cached = get_cache().get_messages(space_name)
     if cached is not None:
         return cached
@@ -431,8 +435,10 @@ def list_messages_cached(space_name: str, limit: int = 25) -> list[dict]:
     return messages
 
 
-def list_messages_fresh(space_name: str, limit: int = 25) -> list[dict]:
+def list_messages_fresh(space_name: str, limit: int | None = None) -> list[dict]:
     """Always fetch messages from API and update the cache."""
+    if limit is None:
+        limit = get_config().message_page_size
     messages = list_messages(space_name, limit)
     get_cache().set_messages(space_name, messages)
     return messages

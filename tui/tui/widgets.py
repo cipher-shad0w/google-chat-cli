@@ -121,7 +121,11 @@ class GroupsPanel(Static):
 
         space_names = [s.get("name", "") for s in spaces if s.get("name")]
 
-        with ThreadPoolExecutor(max_workers=8) as executor:
+        from tui.config import get_config
+
+        with ThreadPoolExecutor(
+            max_workers=get_config().unread_check_workers
+        ) as executor:
             futures = {executor.submit(check_space, name): name for name in space_names}
             for future in as_completed(futures):
                 try:
