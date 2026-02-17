@@ -552,6 +552,35 @@ class NameInputScreen(ModalScreen[str | None]):
         self.dismiss(None)
 
 
+class ReactionScreen(ModalScreen[str | None]):
+    """Modal dialog to select an emoji reaction for a message."""
+
+    BINDINGS = [("escape", "cancel", "Cancel")]
+
+    REACTIONS = ["👍", "👎", "❤️", "😂", "😮", "😢", "🎉", "🤔"]
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="reaction-dialog"):
+            yield Label(
+                "Add reaction  " + "  ".join(self.REACTIONS),
+                id="reaction-dialog-title",
+            )
+            yield Input(placeholder="Type emoji or paste…", id="reaction-input")
+
+    def on_mount(self) -> None:
+        self.query_one("#reaction-input", Input).focus()
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        value = event.value.strip()
+        if value:
+            self.dismiss(value)
+        else:
+            self.dismiss(None)
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)
+
+
 class MessageActionScreen(ModalScreen[str | None]):
     """Modal dialog showing available actions for a message."""
 
