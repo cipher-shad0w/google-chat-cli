@@ -3,7 +3,7 @@
 from textual import events, work
 from textual.app import ComposeResult
 from textual.message import Message
-from textual.widgets import Label, ListItem, ListView, RichLog, Static, TextArea
+from textual.widgets import Label, ListItem, ListView, Static, TextArea
 
 
 class SpaceItem(ListItem):
@@ -76,46 +76,36 @@ class GroupsPanel(Static):
             )
 
 
-class ChatLog(RichLog):
-    """A RichLog that re-wraps content when the widget is resized."""
+class MessageItem(ListItem):
+    """A list item representing a single chat message."""
+
+    def __init__(self, content: str) -> None:
+        """Initialize with message content (Rich markup string)."""
+        super().__init__(Label(content, markup=True))
+        self.message_content = content
+
+
+class ChatLog(ListView):
+    """A ListView that displays chat messages as selectable items."""
 
     def __init__(self, **kwargs) -> None:
+        # Remove any kwargs that are specific to RichLog and not applicable to ListView
+        kwargs.pop("highlight", None)
+        kwargs.pop("markup", None)
+        kwargs.pop("wrap", None)
+        kwargs.pop("min_width", None)
         super().__init__(**kwargs)
         self._raw_entries: list[str] = []
-        """Stores the raw markup strings for re-rendering on resize."""
-        self._last_render_width: int | None = None
 
     def write_message(self, content: str) -> None:
-        """Write a message and store it for re-rendering on resize.
-
-        Args:
-            content: Rich markup string to display.
-        """
+        """Write a message as a new selectable list item."""
         self._raw_entries.append(content)
-        self.write(content, expand=True, shrink=True)
+        self.append(MessageItem(content))
 
     def clear(self) -> "ChatLog":
-        """Clear the log and the stored raw entries."""
+        """Clear all messages."""
         self._raw_entries.clear()
-        self._last_render_width = None
         return super().clear()
-
-    def on_resize(self, event: events.Resize) -> None:
-        """Re-render all messages when the widget width changes."""
-        super().on_resize(event)
-        new_width = event.size.width
-        if self._last_render_width is not None and new_width != self._last_render_width:
-            self._reflow()
-        self._last_render_width = new_width
-
-    def _reflow(self) -> None:
-        """Clear and re-render all stored messages at the current width."""
-        entries = list(self._raw_entries)
-        # Use parent's clear to avoid wiping _raw_entries
-        super().clear()
-        self._raw_entries = entries
-        for entry in entries:
-            self.write(entry, expand=True, shrink=True)
 
 
 class ChatPanel(Static):
@@ -123,9 +113,7 @@ class ChatPanel(Static):
 
     def compose(self) -> ComposeResult:
         """Create the chat log view."""
-        yield ChatLog(
-            id="chat-log", highlight=True, markup=True, wrap=True, min_width=0
-        )
+        yield ChatLog(id="chat-log")
 
     def on_mount(self) -> None:
         """Set the border title when mounted."""
