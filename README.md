@@ -46,7 +46,19 @@ go install github.com/cipher-shad0w/gogchat/cmd/gogchat@latest
 
 ### TUI
 
-The terminal UI is a separate Python package. Requires Python 3.10+:
+The terminal UI is available as a standalone binary via Homebrew, or as a Python package.
+
+#### Homebrew (recommended)
+
+```bash
+brew install cipher-shad0w/tap/gogchat-tui
+```
+
+This installs a self-contained binary — no Python required.
+
+#### pip / uv
+
+Alternatively, install from PyPI (requires Python 3.10+):
 
 ```bash
 pip install gogchat-tui
