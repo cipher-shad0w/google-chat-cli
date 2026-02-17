@@ -201,6 +201,9 @@ class ChatApp(App):
         if self._messages_unchanged(messages):
             return
 
+        # Check for new messages (for notifications)
+        self._check_new_message_notifications(messages, user_name_map)
+
         # Update UI from the worker thread
         self.call_from_thread(self._display_messages, messages, user_name_map)
 
@@ -218,6 +221,56 @@ class ChatApp(App):
             if old_msg.get("text") != new_msg.get("text"):
                 return False
         return True
+
+    def _check_new_message_notifications(
+        self, messages: list[dict], user_name_map: dict[str, str]
+    ) -> None:
+        """Send notifications for new messages detected during polling.
+
+        Only notifies if there are more messages than before (i.e., new
+        messages arrived), not on initial load or space switch.
+        """
+        from tui.config import get_config
+        from tui.notify import send_notification
+
+        config = get_config()
+        if config.notifications == "off":
+            return
+
+        old = self._current_messages
+        if not old:
+            # First load — don't notify
+            return
+
+        # Only notify if new messages appeared (more messages than before)
+        if len(messages) <= len(old):
+            return
+
+        # Find the newest message that wasn't in the old set
+        old_names = {m.get("name") for m in old}
+        new_msgs = [m for m in messages if m.get("name") not in old_names]
+
+        if not new_msgs:
+            return
+
+        # Get the latest new message for the notification
+        latest = new_msgs[-1]
+        sender = latest.get("sender", {})
+        sender_name = sender.get("displayName") or user_name_map.get(
+            sender.get("name", ""), "Someone"
+        )
+        text = latest.get("text", "")
+        # Truncate long messages
+        preview = text[:80] + "\u2026" if len(text) > 80 else text
+
+        # Use the sender name as the notification title
+        space_title = sender_name
+
+        send_notification(
+            title=space_title,
+            body=preview,
+            mode=config.notifications,
+        )
 
     async def _display_messages(
         self, messages: list[dict], user_name_map: dict[str, str] | None = None
