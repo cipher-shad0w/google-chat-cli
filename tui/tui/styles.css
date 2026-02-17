@@ -180,3 +180,24 @@ NameInputScreen {
 #name-dialog #name-input:focus {
     border: round white;
 }
+
+/* Space item row layout */
+.space-row {
+    width: 100%;
+    height: auto;
+}
+
+/* Unread dot indicator */
+.unread-dot {
+    width: 2;
+    min-width: 2;
+    max-width: 2;
+    height: auto;
+    color: #1DB954;
+}
+
+/* Space name label */
+.space-name {
+    width: 1fr;
+    height: auto;
+}

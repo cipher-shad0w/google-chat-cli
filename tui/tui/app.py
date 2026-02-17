@@ -56,6 +56,10 @@ class ChatApp(App):
         chat_panel = self.query_one("#chat-panel", ChatPanel)
         chat_panel.border_title = event.display_name or "Chat"
 
+        # Mark space as read in the UI (remove the unread dot immediately)
+        groups_panel = self.query_one("#groups-panel", GroupsPanel)
+        groups_panel.mark_space_as_read(event.space_name)
+
         # Clear existing messages and show loading.
         # Await the clear so old children are fully removed before we add new ones.
         chat_log = self.query_one("#chat-log", ChatLog)
@@ -166,6 +170,19 @@ class ChatApp(App):
         # Always select the newest (last) message and scroll to it
         chat_log.index = len(chat_log) - 1
         chat_log.scroll_visible()
+
+        # Mark the space as read in the background (use the latest message time)
+        if messages and self.current_space:
+            latest_time = messages[-1].get("createTime", "")
+            if latest_time:
+                self._mark_space_read(self.current_space, latest_time)
+
+    @work(thread=True)
+    def _mark_space_read(self, space_name: str, last_read_time: str) -> None:
+        """Mark a space as read up to the given time in the background."""
+        from tui.cli import update_space_read_state
+
+        update_space_read_state(space_name, last_read_time)
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         """Handle Enter on a chat message to assign a name to unknown senders."""

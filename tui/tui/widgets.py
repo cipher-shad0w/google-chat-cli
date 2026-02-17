@@ -12,18 +12,28 @@ from textual.widgets import Input, Label, ListItem, ListView, Static, TextArea
 class SpaceItem(ListItem):
     """A list item representing a chat space."""
 
-    def __init__(self, space_name: str, display_name: str) -> None:
+    def __init__(
+        self, space_name: str, display_name: str, has_unread: bool = False
+    ) -> None:
         """Initialize with space metadata.
 
         Args:
             space_name: The space resource name (e.g., "spaces/AAAA")
             display_name: Human-readable name to show in the list
+            has_unread: Whether this space has unread messages
         """
-        # Create label with display_name, fallback to space_name
         label_text = display_name if display_name else space_name.split("/")[-1]
-        super().__init__(Label(label_text))
         self.space_name = space_name
         self.display_name = display_name
+        self.has_unread = has_unread
+        super().__init__()
+        self._label_text = label_text
+
+    def compose(self) -> ComposeResult:
+        """Create the space item layout with optional unread dot."""
+        with Horizontal(classes="space-row"):
+            yield Label("● " if self.has_unread else "  ", classes="unread-dot")
+            yield Label(self._label_text, classes="space-name")
 
 
 class GroupsPanel(Static):
@@ -49,27 +59,86 @@ class GroupsPanel(Static):
     @work(thread=True)
     def load_spaces(self) -> None:
         """Load spaces from the CLI in a background thread."""
-        from tui.cli import list_spaces  # Import here to avoid circular imports
+        from tui.cli import list_spaces
 
         spaces = list_spaces()
 
-        # Update UI from the worker thread
+        # Phase 1: Populate UI immediately with no unread indicators
         self.app.call_from_thread(self._populate_spaces, spaces)
+        # Phase 2: Kick off background unread check
+        self.app.call_from_thread(self._start_unread_check, spaces)
 
-    def _populate_spaces(self, spaces: list[dict]) -> None:
+    def _start_unread_check(self, spaces: list[dict]) -> None:
+        """Start the background unread state check."""
+        self._load_unread_states(spaces)
+
+    @work(thread=True)
+    def _load_unread_states(self, spaces: list[dict]) -> None:
+        """Check unread status for all spaces in parallel, then update UI."""
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        from tui.cli import get_space_read_state, list_messages
+
+        unread_spaces: set[str] = set()
+
+        def check_space(space_name: str) -> tuple[str, bool]:
+            last_read_time = get_space_read_state(space_name)
+            if last_read_time is None:
+                return (space_name, False)
+            messages = list_messages(space_name, limit=1)
+            if messages:
+                latest_msg_time = messages[-1].get("createTime", "")
+                if latest_msg_time and latest_msg_time > last_read_time:
+                    return (space_name, True)
+            return (space_name, False)
+
+        space_names = [s.get("name", "") for s in spaces if s.get("name")]
+
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            futures = {executor.submit(check_space, name): name for name in space_names}
+            for future in as_completed(futures):
+                try:
+                    name, is_unread = future.result()
+                    if is_unread:
+                        unread_spaces.add(name)
+                except Exception:
+                    pass
+
+        if unread_spaces:
+            self.app.call_from_thread(self._update_unread_indicators, unread_spaces)
+
+    def _update_unread_indicators(self, unread_spaces: set[str]) -> None:
+        """Update unread dot indicators for spaces that have unread messages."""
+        groups_list = self.query_one("#groups-list", ListView)
+        for item in groups_list.children:
+            if isinstance(item, SpaceItem) and item.space_name in unread_spaces:
+                item.has_unread = True
+                try:
+                    dot_label = item.query_one(".unread-dot", Label)
+                    dot_label.update("● ")
+                except Exception:
+                    pass
+
+    def _populate_spaces(
+        self, spaces: list[dict], unread_spaces: set[str] | None = None
+    ) -> None:
         """Populate the ListView with space items."""
         groups_list = self.query_one("#groups-list", ListView)
         groups_list.clear()
 
+        if unread_spaces is None:
+            unread_spaces = set()
+
         if not spaces:
-            # Show a message if no spaces found
             groups_list.append(ListItem(Label("No spaces found")))
             return
 
         for space in spaces:
             space_name = space.get("name", "")
             display_name = space.get("displayName", "")
-            groups_list.append(SpaceItem(space_name, display_name))
+            has_unread = space_name in unread_spaces
+            groups_list.append(
+                SpaceItem(space_name, display_name, has_unread=has_unread)
+            )
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         """Handle space selection."""
@@ -77,6 +146,19 @@ class GroupsPanel(Static):
             self.post_message(
                 self.SpaceSelected(event.item.space_name, event.item.display_name)
             )
+
+    def mark_space_as_read(self, space_name: str) -> None:
+        """Remove the unread indicator from a specific space item."""
+        groups_list = self.query_one("#groups-list", ListView)
+        for item in groups_list.children:
+            if isinstance(item, SpaceItem) and item.space_name == space_name:
+                item.has_unread = False
+                try:
+                    dot_label = item.query_one(".unread-dot", Label)
+                    dot_label.update("  ")
+                except Exception:
+                    pass
+                break
 
 
 class MessageItem(ListItem):

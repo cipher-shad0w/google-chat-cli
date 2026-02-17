@@ -308,3 +308,96 @@ def build_user_name_map(memberships: list[dict]) -> dict[str, str]:
     # Local overrides take priority over API display names
     name_map.update(load_name_overrides())
     return name_map
+
+
+def get_space_read_state(space_name: str) -> str | None:
+    """Get the last-read time for a space.
+
+    Runs: gogchat readstate get-space users/me/{space_name}/spaceReadState --json
+
+    Args:
+        space_name: The space resource name (e.g., "spaces/AAAA").
+
+    Returns:
+        The lastReadTime as an RFC3339 string, or None on error.
+    """
+    try:
+        gogchat_path = get_gogchat_path()
+    except FileNotFoundError as e:
+        logger.error("Failed to find gogchat binary: %s", e)
+        return None
+
+    # Build the read state resource name: users/me/spaces/AAAA/spaceReadState
+    read_state_name = f"users/me/{space_name}/spaceReadState"
+
+    try:
+        result = subprocess.run(
+            [gogchat_path, "readstate", "get-space", read_state_name, "--json"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        logger.error(
+            "Failed to get read state for %s: %s (exit code %d, stderr: %s)",
+            space_name,
+            e,
+            e.returncode,
+            e.stderr,
+        )
+        return None
+
+    try:
+        data = json.loads(result.stdout)
+        return data.get("lastReadTime")
+    except json.JSONDecodeError as e:
+        logger.error("Failed to parse read state JSON output: %s", e)
+        return None
+
+
+def update_space_read_state(space_name: str, last_read_time: str) -> bool:
+    """Mark a space as read up to the given time.
+
+    Runs: gogchat readstate update-space users/me/{space_name}/spaceReadState --last-read-time {last_read_time} --json
+
+    Args:
+        space_name: The space resource name (e.g., "spaces/AAAA").
+        last_read_time: RFC3339 timestamp to mark as last read.
+
+    Returns:
+        True if successful, False otherwise.
+    """
+    try:
+        gogchat_path = get_gogchat_path()
+    except FileNotFoundError as e:
+        logger.error("Failed to find gogchat binary: %s", e)
+        return False
+
+    read_state_name = f"users/me/{space_name}/spaceReadState"
+
+    try:
+        subprocess.run(
+            [
+                gogchat_path,
+                "readstate",
+                "update-space",
+                read_state_name,
+                "--last-read-time",
+                last_read_time,
+                "--json",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        logger.error(
+            "Failed to update read state for %s: %s (exit code %d, stderr: %s)",
+            space_name,
+            e,
+            e.returncode,
+            e.stderr,
+        )
+        return False
+
+    return True
