@@ -523,6 +523,103 @@ def update_space_read_state(space_name: str, last_read_time: str) -> bool:
     return True
 
 
+def list_reactions(message_name: str) -> list[dict]:
+    """List reactions on a message.
+
+    Runs: gogchat reactions list {message_name} --json
+
+    Args:
+        message_name: The resource name of the message (e.g., "spaces/AAAA/messages/BBBB").
+
+    Returns:
+        A list of reaction dictionaries, each containing:
+        - name: The reaction resource name
+        - emoji: A dict with unicode field
+        - user: The reacting user info
+
+        Returns an empty list on error.
+    """
+    try:
+        gogchat_path = get_gogchat_path()
+    except FileNotFoundError as e:
+        logger.error("Failed to find gogchat binary: %s", e)
+        return []
+
+    try:
+        result = subprocess.run(
+            [gogchat_path, "reactions", "list", message_name, "--json"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        if _is_auth_error(e.stderr):
+            logger.error("AUTH_ERROR: %s", e.stderr.strip())
+        logger.error(
+            "Failed to list reactions for %s: %s (exit code %d, stderr: %s)",
+            message_name,
+            e,
+            e.returncode,
+            e.stderr,
+        )
+        return []
+
+    try:
+        data = json.loads(result.stdout)
+        return data.get("reactions", [])
+    except json.JSONDecodeError as e:
+        logger.error("Failed to parse reactions JSON output: %s", e)
+        return []
+
+
+def create_reaction(message_name: str, emoji: str) -> bool:
+    """Add an emoji reaction to a message.
+
+    Runs: gogchat reactions create {message_name} --emoji {emoji} --json
+
+    Args:
+        message_name: The resource name of the message.
+        emoji: The unicode emoji to react with (e.g., "👍").
+
+    Returns:
+        True if the reaction was created successfully, False otherwise.
+    """
+    try:
+        gogchat_path = get_gogchat_path()
+    except FileNotFoundError as e:
+        logger.error("Failed to find gogchat binary: %s", e)
+        return False
+
+    try:
+        subprocess.run(
+            [
+                gogchat_path,
+                "reactions",
+                "create",
+                message_name,
+                "--emoji",
+                emoji,
+                "--json",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        if _is_auth_error(e.stderr):
+            logger.error("AUTH_ERROR: %s", e.stderr.strip())
+        logger.error(
+            "Failed to create reaction on %s: %s (exit code %d, stderr: %s)",
+            message_name,
+            e,
+            e.returncode,
+            e.stderr,
+        )
+        return False
+
+    return True
+
+
 def list_spaces_cached() -> list[dict]:
     """Return spaces from cache if available, otherwise fetch from API."""
     cached = get_cache().get_spaces()

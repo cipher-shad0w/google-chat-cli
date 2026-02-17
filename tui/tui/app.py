@@ -17,7 +17,37 @@ from tui.widgets import (
     MessageInput,
     MessageItem,
     NameInputScreen,
+    ReactionScreen,
 )
+
+
+def _format_reactions(reactions: list[dict]) -> str:
+    """Format reaction data into a display string.
+
+    Groups reactions by emoji and shows counts.
+
+    Args:
+        reactions: List of reaction dicts from the API.
+
+    Returns:
+        Rich-markup string like "👍 3  ❤️ 1" or empty string.
+    """
+    if not reactions:
+        return ""
+
+    # Count reactions by emoji
+    counts: dict[str, int] = {}
+    for reaction in reactions:
+        emoji_data = reaction.get("emoji", {})
+        unicode_emoji = emoji_data.get("unicode", "")
+        if unicode_emoji:
+            counts[unicode_emoji] = counts.get(unicode_emoji, 0) + 1
+
+    if not counts:
+        return ""
+
+    parts = [f"{emoji} {count}" for emoji, count in counts.items()]
+    return "[dim]" + "  ".join(parts) + "[/dim]"
 
 
 class ChatApp(App):
@@ -28,6 +58,7 @@ class ChatApp(App):
     BINDINGS = [
         ("q", "quit", "Quit"),
         ("r", "refresh_spaces", "Refresh"),
+        ("e", "add_reaction", "React"),
     ]
 
     current_space: str | None = None
@@ -268,6 +299,10 @@ class ChatApp(App):
             # Full content string for raw storage
             content = f"{prefix_markup}{formatted_text}"
 
+            # Format reactions if present
+            reactions = msg.get("reactions", [])
+            reactions_markup = _format_reactions(reactions)
+
             item = MessageItem(
                 content,
                 sender_user_id=user_id if user_id else None,
@@ -275,6 +310,8 @@ class ChatApp(App):
                 prefix_markup=prefix_markup,
                 prefix_width=prefix_width,
                 body_text=formatted_text,
+                message_name=msg.get("name", ""),
+                reactions_markup=reactions_markup,
             )
             chat_log._raw_entries.append(content)
             chat_log.append(item)
@@ -354,6 +391,45 @@ class ChatApp(App):
                 "Failed to send message",
                 severity="error",
                 timeout=5,
+            )
+
+    def action_add_reaction(self) -> None:
+        """Open the reaction dialog for the currently highlighted message."""
+        chat_log = self.query_one("#chat-log", ChatLog)
+        if chat_log.index is None:
+            return
+
+        highlighted = chat_log.highlighted_child
+        if not isinstance(highlighted, MessageItem):
+            return
+
+        if not highlighted.message_name:
+            return
+
+        msg_name = highlighted.message_name
+
+        def _handle_reaction(emoji: str | None) -> None:
+            if emoji is None:
+                return
+            self._create_reaction(msg_name, emoji)
+
+        self.push_screen(ReactionScreen(), callback=_handle_reaction)
+
+    @work(thread=True)
+    def _create_reaction(self, message_name: str, emoji: str) -> None:
+        """Create a reaction in a background thread."""
+        from tui.cli import create_reaction
+
+        if create_reaction(message_name, emoji):
+            # Reload messages to show the new reaction
+            if self.current_space:
+                self.call_from_thread(self.load_messages, self.current_space)
+        else:
+            self.call_from_thread(
+                self.notify,
+                "Failed to add reaction",
+                severity="error",
+                timeout=3,
             )
 
     def action_refresh_spaces(self) -> None:

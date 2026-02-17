@@ -228,6 +228,8 @@ class MessageItem(ListItem):
         prefix_markup: str = "",
         prefix_width: int = 0,
         body_text: str = "",
+        message_name: str = "",
+        reactions_markup: str = "",
     ) -> None:
         """Initialize with message content.
 
@@ -238,6 +240,8 @@ class MessageItem(ListItem):
             prefix_markup: Rich markup for the prefix (timestamp + name + padding).
             prefix_width: The visual character width of the prefix.
             body_text: The plain message body text (will wrap independently).
+            message_name: The message resource name (e.g. "spaces/AAAA/messages/BBBB").
+            reactions_markup: Rich markup string for reactions display.
         """
         # If prefix_markup and body_text are provided, use two-column layout
         if prefix_markup and prefix_width > 0:
@@ -246,7 +250,15 @@ class MessageItem(ListItem):
             prefix_label.styles.min_width = prefix_width
             prefix_label.styles.max_width = prefix_width
             body_label = Label(body_text, markup=True, classes="msg-body")
-            container = Horizontal(prefix_label, body_label, classes="msg-row")
+            if reactions_markup:
+                body_content = Vertical(
+                    body_label,
+                    Label(reactions_markup, markup=True, classes="msg-reactions"),
+                    classes="msg-body-container",
+                )
+                container = Horizontal(prefix_label, body_content, classes="msg-row")
+            else:
+                container = Horizontal(prefix_label, body_label, classes="msg-row")
             super().__init__(container)
         else:
             # Fallback for system/status messages
@@ -255,6 +267,7 @@ class MessageItem(ListItem):
         self.sender_user_id = sender_user_id
         self.is_name_resolved = is_name_resolved
         self.prefix_width = prefix_width
+        self.message_name = message_name
 
 
 class ChatLog(ListView):
@@ -346,6 +359,35 @@ class NameInputScreen(ModalScreen[str | None]):
 
     def on_mount(self) -> None:
         self.query_one("#name-input", Input).focus()
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        value = event.value.strip()
+        if value:
+            self.dismiss(value)
+        else:
+            self.dismiss(None)
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)
+
+
+class ReactionScreen(ModalScreen[str | None]):
+    """Modal dialog to select an emoji reaction for a message."""
+
+    BINDINGS = [("escape", "cancel", "Cancel")]
+
+    REACTIONS = ["👍", "👎", "❤️", "😂", "😮", "😢", "🎉", "🤔"]
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="reaction-dialog"):
+            yield Label(
+                "Add reaction  " + "  ".join(self.REACTIONS),
+                id="reaction-dialog-title",
+            )
+            yield Input(placeholder="Type emoji or paste…", id="reaction-input")
+
+    def on_mount(self) -> None:
+        self.query_one("#reaction-input", Input).focus()
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         value = event.value.strip()

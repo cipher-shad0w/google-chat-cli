@@ -223,3 +223,45 @@ Toast.-information {
     background: #113d1e;
     border: round #2ecc71;
 }
+
+/* Reaction dialog */
+#reaction-dialog {
+    width: 60;
+    height: auto;
+    max-height: 10;
+    border: round white;
+    background: #1e1e1e;
+    padding: 1 2;
+}
+
+#reaction-dialog-title {
+    width: 100%;
+    margin-bottom: 1;
+}
+
+#reaction-dialog #reaction-input {
+    width: 100%;
+    border: round gray;
+    background: #121212;
+}
+
+#reaction-dialog #reaction-input:focus {
+    border: round white;
+}
+
+/* Reaction display on messages */
+.msg-reactions {
+    width: 1fr;
+    height: auto;
+    color: #888;
+}
+
+.msg-body-container {
+    width: 1fr;
+    height: auto;
+}
+
+/* ReactionScreen modal centering */
+ReactionScreen {
+    align: center middle;
+}
