@@ -71,14 +71,12 @@ jobs:
         id: checksums
         run: |
           echo "sha_darwin_arm64=$(sha256sum tui-dist/gogchat-tui_darwin_arm64/gogchat-tui_darwin_arm64.tar.gz | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
-          echo "sha_darwin_amd64=$(sha256sum tui-dist/gogchat-tui_darwin_amd64/gogchat-tui_darwin_amd64.tar.gz | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
           echo "sha_linux_amd64=$(sha256sum tui-dist/gogchat-tui_linux_amd64/gogchat-tui_linux_amd64.tar.gz | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
 
       - name: Generate Homebrew formula
         env:
           VERSION: ${{ github.ref_name }}
           SHA_DARWIN_ARM64: ${{ steps.checksums.outputs.sha_darwin_arm64 }}
-          SHA_DARWIN_AMD64: ${{ steps.checksums.outputs.sha_darwin_amd64 }}
           SHA_LINUX_AMD64: ${{ steps.checksums.outputs.sha_linux_amd64 }}
         run: |
           VER="${VERSION#v}"
@@ -92,13 +90,8 @@ jobs:
             depends_on "cipher-shad0w/tap/gogchat"
 
             on_macos do
-              if Hardware::CPU.arm?
-                url "https://github.com/cipher-shad0w/gogchat/releases/download/${VERSION}/gogchat-tui_darwin_arm64.tar.gz"
-                sha256 "${SHA_DARWIN_ARM64}"
-              else
-                url "https://github.com/cipher-shad0w/gogchat/releases/download/${VERSION}/gogchat-tui_darwin_amd64.tar.gz"
-                sha256 "${SHA_DARWIN_AMD64}"
-              end
+              url "https://github.com/cipher-shad0w/gogchat/releases/download/${VERSION}/gogchat-tui_darwin_arm64.tar.gz"
+              sha256 "${SHA_DARWIN_ARM64}"
             end
 
             on_linux do
