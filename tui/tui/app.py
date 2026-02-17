@@ -5,9 +5,8 @@ from pathlib import Path
 from textual import work
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
-from textual.widgets import RichLog
 
-from tui.widgets import ChatPanel, GroupsPanel, InputPanel, MessageInput
+from tui.widgets import ChatLog, ChatPanel, GroupsPanel, InputPanel, MessageInput
 
 
 class ChatApp(App):
@@ -39,9 +38,9 @@ class ChatApp(App):
         chat_panel.border_title = event.display_name or "Chat"
 
         # Clear existing messages and show loading
-        chat_log = self.query_one("#chat-log", RichLog)
+        chat_log = self.query_one("#chat-log", ChatLog)
         chat_log.clear()
-        chat_log.write("[dim]Loading messages...[/dim]")
+        chat_log.write_message("[dim]Loading messages...[/dim]")
 
         # Load messages in background
         self.load_messages(event.space_name)
@@ -62,14 +61,14 @@ class ChatApp(App):
         self, messages: list[dict], user_name_map: dict[str, str] | None = None
     ) -> None:
         """Display messages in the chat log."""
-        chat_log = self.query_one("#chat-log", RichLog)
+        chat_log = self.query_one("#chat-log", ChatLog)
         chat_log.clear()
 
         if user_name_map is None:
             user_name_map = {}
 
         if not messages:
-            chat_log.write("[dim]No messages in this space[/dim]")
+            chat_log.write_message("[dim]No messages in this space[/dim]")
             return
 
         # Display messages in chronological order (oldest first)
@@ -85,7 +84,7 @@ class ChatApp(App):
             text = msg.get("text", "")
 
             # Format: [bold]Sender:[/bold] Message text
-            chat_log.write(f"[bold]{sender_name}:[/bold] {text}")
+            chat_log.write_message(f"[bold]{sender_name}:[/bold] {text}")
 
     def on_message_input_submitted(self, event: MessageInput.Submitted) -> None:
         """Handle message submission from the input panel."""

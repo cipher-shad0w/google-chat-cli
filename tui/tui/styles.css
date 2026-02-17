@@ -87,6 +87,7 @@ ListItem.-selected {
 RichLog {
     background: #121212;
     background-tint: #121212 0%;
+    overflow-x: hidden;
 }
 
 RichLog:focus {
