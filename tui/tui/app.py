@@ -38,10 +38,12 @@ class ChatApp(App):
         super().__init__(*args, **kwargs)
         self._current_messages = []
         self._current_user_name_map = {}
+        self._poll_timer = None
 
     async def on_mount(self) -> None:
         """Run startup checks when the app mounts."""
         self._check_startup()
+        self._start_polling()
 
     @work(thread=True)
     def _check_startup(self) -> None:
@@ -74,6 +76,33 @@ class ChatApp(App):
             with Vertical(id="main-content"):
                 yield ChatPanel(id="chat-panel")
                 yield InputPanel(id="input-panel")
+
+    def _start_polling(self) -> None:
+        """Start the message polling timer if enabled in config."""
+        from tui.config import get_config
+
+        interval = get_config().poll_interval
+        if interval <= 0:
+            return
+
+        # Cancel any existing timer
+        self._stop_polling()
+        self._poll_timer = self.set_interval(interval, self._poll_messages)
+
+    def _stop_polling(self) -> None:
+        """Stop the message polling timer."""
+        if self._poll_timer is not None:
+            self._poll_timer.stop()
+            self._poll_timer = None
+
+    def _restart_polling(self) -> None:
+        """Restart the polling timer (called when switching spaces)."""
+        self._start_polling()
+
+    def _poll_messages(self) -> None:
+        """Timer callback: refresh messages for the current space."""
+        if self.current_space:
+            self.load_messages(self.current_space)
 
     async def on_groups_panel_space_selected(
         self, event: GroupsPanel.SpaceSelected
@@ -112,6 +141,9 @@ class ChatApp(App):
         # Always refresh in background (will silently update if data changed)
         self.load_messages(event.space_name)
 
+        # Start/restart polling for the new space
+        self._restart_polling()
+
     @work(thread=True)
     def load_messages(self, space_name: str) -> None:
         """Load messages from the selected space in a background thread."""
@@ -138,13 +170,12 @@ class ChatApp(App):
         if len(old) != len(new_messages):
             return False
         if not old:
-            # Both empty
             return True
-        # Compare first and last message resource names and text
-        for idx in (0, -1):
-            if old[idx].get("name") != new_messages[idx].get("name"):
+        # Compare all messages by resource name and text content
+        for old_msg, new_msg in zip(old, new_messages):
+            if old_msg.get("name") != new_msg.get("name"):
                 return False
-            if old[idx].get("text") != new_messages[idx].get("text"):
+            if old_msg.get("text") != new_msg.get("text"):
                 return False
         return True
 
