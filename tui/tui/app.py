@@ -67,6 +67,7 @@ class ChatApp(App):
         ("l", "focus_chat", "Chat"),
         ("slash", "focus_search", "Search"),
         ("f", "toggle_message_search", "Find"),
+        ("t", "cycle_space_category", "Category"),
     ]
 
     current_space: str | None = None
@@ -577,3 +578,18 @@ class ChatApp(App):
         """Refresh the spaces list."""
         groups_panel = self.query_one("#groups-panel", GroupsPanel)
         groups_panel.load_spaces()
+
+    def action_cycle_space_category(self) -> None:
+        """Cycle through space category filters: all -> spaces -> dms -> all."""
+        groups_panel = self.query_one("#groups-panel", GroupsPanel)
+        current = groups_panel._category_filter
+        cycle = {"all": "spaces", "spaces": "dms", "dms": "all"}
+        new_category = cycle.get(current, "all")
+        groups_panel._category_filter = new_category
+
+        # Update the panel title to show current filter
+        labels = {"all": "Groups", "spaces": "Groups [Spaces]", "dms": "Groups [DMs]"}
+        groups_panel.border_title = labels.get(new_category, "Groups")
+
+        # Re-populate with the new filter
+        groups_panel._apply_space_filter()

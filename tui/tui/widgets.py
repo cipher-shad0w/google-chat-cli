@@ -50,11 +50,28 @@ class VimListView(ListView):
         super()._on_key(event)
 
 
+class CategoryHeader(ListItem):
+    """A non-selectable section header in the spaces list."""
+
+    def __init__(self, title: str) -> None:
+        self.category_title = title
+        super().__init__()
+
+    def compose(self) -> ComposeResult:
+        yield Label(
+            f"[bold dim]{self.category_title}[/bold dim]", classes="category-header"
+        )
+
+
 class SpaceItem(ListItem):
     """A list item representing a chat space."""
 
     def __init__(
-        self, space_name: str, display_name: str, has_unread: bool = False
+        self,
+        space_name: str,
+        display_name: str,
+        has_unread: bool = False,
+        space_type: str = "",
     ) -> None:
         """Initialize with space metadata.
 
@@ -62,11 +79,13 @@ class SpaceItem(ListItem):
             space_name: The space resource name (e.g., "spaces/AAAA")
             display_name: Human-readable name to show in the list
             has_unread: Whether this space has unread messages
+            space_type: The space type (e.g., "SPACE", "GROUP_CHAT", "DIRECT_MESSAGE")
         """
         label_text = display_name if display_name else space_name.split("/")[-1]
         self.space_name = space_name
         self.display_name = display_name
         self.has_unread = has_unread
+        self.space_type = space_type
         super().__init__()
         self._label_text = label_text
 
@@ -99,6 +118,7 @@ class GroupsPanel(Static):
         self._current_spaces: list[dict] = []
         self._all_spaces: list[dict] = []
         self._filter_text: str = ""
+        self._category_filter: str = "all"  # "all", "spaces", "dms"
         self.load_spaces()
 
     def on_input_changed(self, event: Input.Changed) -> None:
@@ -237,7 +257,7 @@ class GroupsPanel(Static):
     def _populate_spaces(
         self, spaces: list[dict], unread_spaces: set[str] | None = None
     ) -> None:
-        """Populate the ListView with space items."""
+        """Populate the ListView with space items grouped by type."""
         # Store the full list (only when called without filtering)
         if not self._filter_text:
             self._all_spaces = spaces
@@ -252,13 +272,56 @@ class GroupsPanel(Static):
             groups_list.append(ListItem(Label("No spaces found")))
             return
 
+        # Classify spaces
+        dm_spaces = []
+        group_spaces = []
+        named_spaces = []
+
         for space in spaces:
-            space_name = space.get("name", "")
-            display_name = space.get("displayName", "")
-            has_unread = space_name in unread_spaces
-            groups_list.append(
-                SpaceItem(space_name, display_name, has_unread=has_unread)
-            )
+            space_type = space.get("spaceType", "")
+            if space_type == "DIRECT_MESSAGE":
+                dm_spaces.append(space)
+            elif space_type == "SPACE":
+                named_spaces.append(space)
+            else:
+                # GROUP_CHAT or unknown
+                group_spaces.append(space)
+
+        # Apply category filter
+        show_spaces = self._category_filter in ("all", "spaces")
+        show_dms = self._category_filter in ("all", "dms")
+
+        if show_spaces and (named_spaces or group_spaces):
+            if self._category_filter == "all":
+                groups_list.append(CategoryHeader("Spaces"))
+            for space in named_spaces + group_spaces:
+                space_name = space.get("name", "")
+                display_name = space.get("displayName", "")
+                has_unread = space_name in unread_spaces
+                groups_list.append(
+                    SpaceItem(
+                        space_name,
+                        display_name,
+                        has_unread=has_unread,
+                        space_type=space.get("spaceType", ""),
+                    )
+                )
+
+        if show_dms and dm_spaces:
+            if self._category_filter == "all":
+                groups_list.append(CategoryHeader("Direct Messages"))
+            for space in dm_spaces:
+                space_name = space.get("name", "")
+                display_name = space.get("displayName", "")
+                has_unread = space_name in unread_spaces
+                groups_list.append(
+                    SpaceItem(
+                        space_name,
+                        display_name,
+                        has_unread=has_unread,
+                        space_type=space.get("spaceType", ""),
+                    )
+                )
 
         self._current_spaces = spaces
 

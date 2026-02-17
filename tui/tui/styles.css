@@ -376,3 +376,20 @@ ConfirmDeleteScreen {
 .search-visible {
     display: block;
 }
+
+/* Category section headers in spaces list */
+.category-header {
+    width: 100%;
+    height: auto;
+    color: #888;
+    padding: 0 1;
+}
+
+CategoryHeader {
+    background: #121212;
+    height: auto;
+}
+
+CategoryHeader:hover {
+    background: #121212;
+}
