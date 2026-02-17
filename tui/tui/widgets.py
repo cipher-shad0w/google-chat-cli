@@ -13,6 +13,43 @@ from textual.widgets import Input, Label, ListItem, ListView, Static, TextArea
 logger = logging.getLogger(__name__)
 
 
+class VimListView(ListView):
+    """A ListView with optional vim-style keybindings.
+
+    When vim mode is enabled (via config), j/k navigate up/down and
+    g/G jump to first/last item.
+    """
+
+    def _on_key(self, event: events.Key) -> None:
+        from tui.config import get_config
+
+        if get_config().vim_mode:
+            if event.key == "j":
+                event.prevent_default()
+                event.stop()
+                self.action_cursor_down()
+                return
+            elif event.key == "k":
+                event.prevent_default()
+                event.stop()
+                self.action_cursor_up()
+                return
+            elif event.key == "g":
+                event.prevent_default()
+                event.stop()
+                self.index = 0
+                self.scroll_visible()
+                return
+            elif event.key == "G":
+                event.prevent_default()
+                event.stop()
+                if len(self) > 0:
+                    self.index = len(self) - 1
+                    self.scroll_visible()
+                return
+        super()._on_key(event)
+
+
 class SpaceItem(ListItem):
     """A list item representing a chat space."""
 
@@ -53,7 +90,7 @@ class GroupsPanel(Static):
 
     def compose(self) -> ComposeResult:
         """Create the groups list view."""
-        yield ListView(id="groups-list")
+        yield VimListView(id="groups-list")
 
     def on_mount(self) -> None:
         """Set the border title and load spaces."""
@@ -271,7 +308,7 @@ class MessageItem(ListItem):
         self.message_name = message_name
 
 
-class ChatLog(ListView):
+class ChatLog(VimListView):
     """A ListView that displays chat messages as selectable items."""
 
     def __init__(self, **kwargs) -> None:

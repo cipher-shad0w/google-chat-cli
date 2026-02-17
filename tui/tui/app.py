@@ -63,6 +63,9 @@ class ChatApp(App):
         ("r", "refresh_spaces", "Refresh"),
         ("e", "add_reaction", "React"),
         ("a", "message_action", "Actions"),
+        ("h", "focus_spaces", "Spaces"),
+        ("l", "focus_chat", "Chat"),
+        ("slash", "focus_search", "Search"),
     ]
 
     current_space: str | None = None
@@ -527,6 +530,42 @@ class ChatApp(App):
             self.call_from_thread(
                 self.notify, "Failed to update message", severity="error", timeout=5
             )
+
+    def action_focus_spaces(self) -> None:
+        """Focus the spaces list panel (vim: h)."""
+        from tui.config import get_config
+
+        if not get_config().vim_mode:
+            return
+        try:
+            groups_list = self.query_one("#groups-list", ListView)
+            groups_list.focus()
+        except Exception:
+            pass
+
+    def action_focus_chat(self) -> None:
+        """Focus the chat log panel (vim: l)."""
+        from tui.config import get_config
+
+        if not get_config().vim_mode:
+            return
+        try:
+            chat_log = self.query_one("#chat-log", ChatLog)
+            chat_log.focus()
+        except Exception:
+            pass
+
+    def action_focus_search(self) -> None:
+        """Focus the message input (vim: /)."""
+        from tui.config import get_config
+
+        if not get_config().vim_mode:
+            return
+        try:
+            message_input = self.query_one("#message-input", MessageInput)
+            message_input.focus()
+        except Exception:
+            pass
 
     def action_refresh_spaces(self) -> None:
         """Refresh the spaces list."""
