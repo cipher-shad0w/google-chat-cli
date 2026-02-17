@@ -116,6 +116,9 @@ class ChatApp(App):
             (len(name) + 1 for name, _ in resolved_names), default=0
         )  # +1 for the colon
 
+        # The timestamp prefix is always "[HH:MM] " = 8 visible chars when present
+        time_prefix_len = 8  # len("[HH:MM] ") — visible chars of the dim timestamp
+
         # Second pass: render messages with aligned columns
         for msg, (sender_name, resolved) in zip(messages, resolved_names):
             sender = msg.get("sender", {})
@@ -124,6 +127,7 @@ class ChatApp(App):
 
             # Parse the send time from createTime (e.g. "2025-01-15T11:23:45.123Z")
             time_str = ""
+            has_time = False
             create_time = msg.get("createTime", "")
             if create_time:
                 try:
@@ -131,18 +135,30 @@ class ChatApp(App):
                     # Convert to local time
                     local_dt = dt.astimezone()
                     time_str = f"[dim][{local_dt.strftime('%H:%M')}][/dim] "
+                    has_time = True
                 except (ValueError, OSError):
                     pass
 
             # Pad "name:" to max_name_len so text column aligns
             name_with_colon = f"{sender_name}:"
             padding = " " * (max_name_len - len(name_with_colon) + 1)
-            content = f"{time_str}[bold]{name_with_colon}[/bold]{padding}{text}"
+
+            # Build prefix markup (timestamp + name + padding)
+            prefix_markup = f"{time_str}[bold]{name_with_colon}[/bold]{padding}"
+
+            # Calculate visual prefix width
+            prefix_width = (time_prefix_len if has_time else 0) + max_name_len + 1
+
+            # Full content string for raw storage
+            content = f"{prefix_markup}{text}"
 
             item = MessageItem(
                 content,
                 sender_user_id=user_id if user_id else None,
                 is_name_resolved=resolved,
+                prefix_markup=prefix_markup,
+                prefix_width=prefix_width,
+                body_text=text,
             )
             chat_log._raw_entries.append(content)
             chat_log.append(item)

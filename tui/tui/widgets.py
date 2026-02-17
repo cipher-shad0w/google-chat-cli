@@ -3,7 +3,7 @@
 from textual import events, work
 from textual.app import ComposeResult
 from textual.await_remove import AwaitRemove
-from textual.containers import Vertical
+from textual.containers import Horizontal, Vertical
 from textual.message import Message
 from textual.screen import ModalScreen
 from textual.widgets import Input, Label, ListItem, ListView, Static, TextArea
@@ -87,18 +87,36 @@ class MessageItem(ListItem):
         content: str,
         sender_user_id: str | None = None,
         is_name_resolved: bool = True,
+        prefix_markup: str = "",
+        prefix_width: int = 0,
+        body_text: str = "",
     ) -> None:
-        """Initialize with message content (Rich markup string).
+        """Initialize with message content.
 
         Args:
-            content: Rich-markup formatted message text.
+            content: Full Rich-markup formatted message text (kept for raw storage).
             sender_user_id: The sender's resource name (e.g. "users/123").
             is_name_resolved: False when the displayed name is a raw user ID.
+            prefix_markup: Rich markup for the prefix (timestamp + name + padding).
+            prefix_width: The visual character width of the prefix.
+            body_text: The plain message body text (will wrap independently).
         """
-        super().__init__(Label(content, markup=True))
+        # If prefix_markup and body_text are provided, use two-column layout
+        if prefix_markup and prefix_width > 0:
+            prefix_label = Static(prefix_markup, markup=True, classes="msg-prefix")
+            prefix_label.styles.width = prefix_width
+            prefix_label.styles.min_width = prefix_width
+            prefix_label.styles.max_width = prefix_width
+            body_label = Label(body_text, markup=False, classes="msg-body")
+            container = Horizontal(prefix_label, body_label, classes="msg-row")
+            super().__init__(container)
+        else:
+            # Fallback for system/status messages
+            super().__init__(Label(content, markup=True))
         self.message_content = content
         self.sender_user_id = sender_user_id
         self.is_name_resolved = is_name_resolved
+        self.prefix_width = prefix_width
 
 
 class ChatLog(ListView):
